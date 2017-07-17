@@ -18,7 +18,7 @@ unique. Due to the nature of OCaml's module system, packed modules can
 only be linked in their entirety, which can dramatically increase the
 size of executables. Packed modules are also a bit inflexible. It is
 difficult for multiple libraries to install their contents within a
-single packed module, or to use them craft a custom namespace for a
+single packed module, or to use them to craft a custom namespace for a
 particular application.
 
 2. Module aliases, in combination with the `-open` and `-no-alias-deps`
@@ -29,7 +29,7 @@ illusion that compilation units have a hierarchical namespace. However,
 implementing this system is a lot of work for these build systems and
 even more work for tools like merlin and odoc to try to hide what is
 going on under the hood. Even with all this hard work artefacts of the
-process, e.g the hidden long unit names, do tend to occasionally leak
+process, e.g. the hidden long unit names, do tend to occasionally leak
 out to the user. Module aliases do not suffer from the linking issues
 of packed modules. They are noticeably more flexible than packed modules
 but it is still difficult for multiple libraries to install their units
@@ -58,7 +58,7 @@ packages.
 The general approach of this proposal is to have the namespace of units
 reflect the directory structure in which those units are found. Note
 that this refers to the installation directories where the compiled
-artefacts are found (`.cmi`, `.cmo`, .cmx`, etc.) rather than the
+artefacts are found (`.cmi`, `.cmo`, `.cmx`, etc.) rather than the
 source directories.
 
 This approach should provide a system that is easy to manage and fairly
