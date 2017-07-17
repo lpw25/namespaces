@@ -18,7 +18,7 @@ unique. Due to the nature of OCaml's module system, packed modules can
 only be linked in their entirety, which can dramatically increase the
 size of executables. Packed modules are also a bit inflexible. It is
 difficult for multiple libraries to install their contents within a
-single packed module, or to use them craft to a custom namespace for a
+single packed module, or to use them to craft a custom namespace for a
 particular application.
 
 2. Module aliases, in combination with the `-open` and `-no-alias-deps`
