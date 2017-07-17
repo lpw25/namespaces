@@ -43,14 +43,14 @@ An additional long term aim is to address the over-abundance of names
 within the OCaml ecosystem. Currently a library with a single module has
 at least 4 names associated with it:
 
-1. The name of it's module
-2. The name of it's .cmxa archive file
-3. The name of it's ocamlfind library
-4. The name of it's opam package
+1. The name of its module
+2. The name of its .cmxa archive file
+3. The name of its ocamlfind library
+4. The name of its opam package
 
 Ideally all these names are identical, but it would still be good to get
 rid of some of them. This proposal aims to remove 2 immediately and to
-lay the ground-work towards eliminating 3, at least for the majority of
+lay the groundwork towards eliminating 3, at least for the majority of
 packages.
 
 ## Design
