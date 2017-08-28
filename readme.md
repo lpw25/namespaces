@@ -44,7 +44,7 @@ within the OCaml ecosystem. Currently a library with a single module has
 at least 4 names associated with it:
 
 1. The name of its module
-2. The name of its .cmxa archive file
+2. The name of its `.cmxa` archive file
 3. The name of its ocamlfind library
 4. The name of its opam package
 
@@ -62,7 +62,7 @@ artefacts are found (`.cmi`, `.cmo`, `.cmx`, etc.) rather than the
 source directories.
 
 This approach should provide a system that is easy to manage and fairly
-flexible. It does not require the final name of a unit to known in
+flexible. It does not require the final name of a unit to be known in
 advance: moving a unit to a different position in the namespace simply
 requires moving its compiled files to a different position in the
 directory hierarchy.
@@ -97,15 +97,23 @@ necessary as well.
 #### `-linkall`
 
 The `-linkall` option can be used when creating a `.cmxa` file to force
-the linking of all modules from the library even if some modules are not
-transitive dependencies of the executable.
+the linking of all compilation units from the library even if some units
+are not transitive dependencies of the executable.
 
-The main use case for this feature is when some modules in the library
-depend indirectly on some other modules -- usually via
+The main use case for this feature is when some compilation units in the
+library depend indirectly on some other units -- usually via
 side-effects. This use case can instead be supported with a new
 `-requires` option: adding `-requires Foo` when compiling the `bar` unit
 will ensure that `Foo` is always linked into any executable that
 includes `Bar`.
+
+Note that the `-linkall` option can also be used when creating an
+executable to force all the compilation units from every `.cmxa` file
+passed to the compiler to be linked into the executable even if they are
+not transitive dependencies of the executable. This use case would still
+be handled by the `-linkall` option and which would be extended to also
+force linking of every unit from directories given to the compiler with
+`-I`.
 
 ### `-P` option
 
@@ -116,7 +124,8 @@ using the `-I` option. For example,
 
 where `foo` is a directory containing the files `a.cmi` and `b.cmi` will
 give the units described by `a.cmi` and `b.cmi` the names `A` and `B`
-respectively, and make them available for use in `bar.ml`.
+respectively, and make them available for use in `bar.ml` as `A` and
+`B`.
 
 In order to support hierarchical namespacing for compilation units, a
 second option `-P` should be added. Given the same foo directory as
@@ -128,6 +137,10 @@ will instead give the units described by `a.cmi` and `b.cmi` the names
 `Foo.A` and `Foo.B` respectively and make a module `Foo` available for
 use in `bar.ml`. `Foo` will consist of two module aliases `A` and `B`
 pointing to `Foo.A` and `Foo.B`.
+
+As with `-I` options in the current compiler, modules introduced by
+later `-P` or `-I` options will shadow modules introduced by earlier
+`-P` or `-I` options.
 
 #### Sub-directories
 
@@ -177,23 +190,33 @@ then `-I` and `-P` are used to present the view of that tree from a
 particular unit. For example, when compiling unit `Foo.A` above you
 should use:
 
- - an `-I` option to make the `Foo.B` module available as `B`
+ - an `-I` option to make the `Foo.B` module available as `B`. For
+   example, `-I .` where `./b.cmi` is the interface file for `Foo.B`.
 
  - a `-P` option to make `Foo.Bar.C` and `Foo.Bar.D` available as
-   `Bar.C` and `Bar.D`
+   `Bar.C` and `Bar.D`. For example, `-P bar` where `bar/c.cmi` and
+   `bar/d.cmi` are the interface files for `Foo.Bar.C` and `Foo.Bar.D`.
 
- - a `-P` option to make `Baz.E` available as `Baz.E`
+ - a `-P` option to make `Baz.E` available as `Baz.E`. For example, `-P
+   lib/baz` where `lib/baz/e.cmi` is the interface file for `Baz.E`.
 
- - an `-I` option to make `F` available as `F`
+ - an `-I` option to make `F` available as `F`. For example, `-I
+   lib/fox` where `lib/fox/f.cmi` is the interface file for `F`.
 
 and for the final linking you should use:
 
  - a `-P` option to make `Foo.A`, `Foo.B`, `Foo.Bar.C` and `Foo.Bar.D`
-   available with those names.
+   available with those names. For example `-P lib/foo` where
+   `lib/foo/a.cmx`, `lib/foo/b.cmx`, `lib/foo/bar/c.cmx` and
+   `lib/foo/bar/d.cmx` are the implementation files for `Foo.A`,
+   `Foo.B`, `Foo.Bar.C` and `Foo.Bar.D` respectively.
 
- - a `-P` option to make `Bar.E` available with that name
+ - a `-P` option to make `Baz.E` available with that name. For example,
+   `-P lib/baz` where `lib/baz/e.cmx` is the implementation file for
+   `Baz.E`.
 
- - an `-I` option to make `F` available with that name
+ - an `-I` option to make `F` available with that name. For example, `-I
+   lib/fox` where `lib/fox/f.cmx` is the implementation file for `F`.
 
 When the linker sees that `Foo.A` refers to a module `Bar.C` it will
 look for `Foo.Bar.C` and find it, and when it sees that `Foo.A` refers
@@ -209,13 +232,13 @@ to have relative naming with two simple command-line options -- being
 more precise about the shape of the tree would require a more complex
 set of options.
 
-### `OCAML_NAMESPACES` environment variable
+### `OCAML_NAMESPACES` and `site-packages`
 
 In addition to `-P` we propose an additional mechanism for creating
 hierarchical namespaces: the `OCAML_NAMESPACES` environment
 variable. This variable would have the form:
 
-    OCAML_NAMESPACES=name1:/path/to/dir1;name2:/path/to/dir2
+    OCAML_NAMESPACES=name1=/path/to/dir1:name2=/path/to/dir2
 
 If `/path/to/dir1` contained the directory `foo`
 (i.e. `/path/to/dir1/foo`) which in turn contained the compiled
@@ -223,6 +246,37 @@ interfaces `a.cmi` and `b.cmi` then these would be given the names
 `name1:Foo.A` and `name1:Foo.B` respectively, and a module `Foo` would
 be made available which contained module aliases `A` and `B` pointing to
 `name1:Foo.A` and `name1:Foo.B`.
+
+Modules introduced by later namespaces in `OCAML_NAMESPACES` will shadow
+modules introduced by earlier namespaces. In addition, modules
+introduced by `-I` or `-P` will shadow modules introduced via
+`OCAML_NAMESPACES`.
+
+Note that we distinguish the name of the unit from the module identifier
+that is made available in the source. For units introduced with `-I`
+these two things coincide, so that a unit named `A` is always made
+available as a module identifier `A`, but with `OCAML_NAMESPACES` a unit
+named `name1:Foo` would be made available in the source as the module
+identifier `Foo`. This distinction was technically already present for
+modules introduced with `-P`, where a unit named `Foo.Bar` would be made
+available using a module identifier `Foo` as `Foo.Bar`, which is
+different because the `.` in the second case is module projection whilst
+in the first case it was namespace projection.
+
+#### `site-packages`
+
+For convenience, we propose including a default `lib` namespace that
+does not need to be given explicitly in `OCAML_NAMESPACES`. So that an
+empty `OCAML_NAMESPACES` variable is equivalent to having
+`OCAML_NAMESPACES` set to:
+
+    OCAML_NAMESPACES=lib=$OCAMLLIB/site-packages
+
+where `$OCAMLLIB` is the existing environment variable that points to
+OCaml's standard library. Since, by default, `$OCAMLLIB` is
+`<prefix>/lib/ocaml` the `lib` namespace will default to
+`<prefix>/lib/ocaml/site-packages`. This gives a sensible default
+location for packages to install themselves unless otherwise instructed.
 
 #### Sub-directories
 
@@ -238,7 +292,7 @@ at `name1:Foo.Baz.C`.
 As with `-I` and `-P`, `OCAML_NAMESPACES` is used to make units
 available for linking as well as compilation. For example, with
 
-    OCAML_NAMESPACES=name1:/path/to/dir1
+    OCAML_NAMESPACES=name1=/path/to/dir1
 
 where the `/path/to/dir1/foo` directory contains `a.cmx` and `b.cmx`
 would make those units available for linking as `name1:Foo.A` and
@@ -277,6 +331,57 @@ and
 
 would always produce different symbol names even if both `a.mli`s were
 identical.
+
+### "Listing" files
+
+In the previous sections we have described how this proposal gives names
+to compilation units by reflecting the directory structure in which
+those units are found. However, whilst directories are a convenient
+mechanism for exposing units' names to the compiler they can cause
+problems for producing deterministic parallel builds. For this reason,
+we also propose allowing `-I`, `-P` and `OCAML_NAMESPACES` to accept a
+file containing a list of interface files rather than a directory.
+
+For example, given a file `foo.list` containing:
+
+    A        a
+    B        build/b
+    Bar.C    bar/build/c
+    Bar.D    bar/d
+
+then `-P foo.list` will will give the units described by `a.cmi`,
+`build/b.cmi`, `/bar/build/c.cmi` and `bar/d.cmi` the names `Foo.A`,
+`Foo.B`, `Foo.Bar.C` and `Foo.Bar.D` respectively, and make them
+available in the source as a module `Foo` containing `A`, `B`, `Bar.C`
+and `Bar.D` as submodules.
+
+This part is somewhat orthogonal to the rest of the proposal -- these
+files would already be useful with the `-I` option in the current
+compiler -- but it is closely related so we include it anyway.
+
+### Dynamic linking
+
+Dynamic linking in OCaml is done using `cmxs` files. `cmxs` files are
+created by `ocamlopt` from a collection of `cmx` files.
+
+For the purposes of this proposal we treat creating a `cmxs` file much
+like linking an executable. As such we treat all unit names in a `cmxs`
+file as absolute names -- so a unit named `Foo` in the `cmxs` file is
+linked into the executable as `Foo`. This allows dynamic linking to
+proceed just as it does currently without any real changes.
+
+For example, if `foo.cmxs` is created with:
+
+    ocamlopt -shared -P bar a.cmx -o foo.cmxs
+
+where the `bar` directory contains `b.cmx` and `c.cmx`, and `A` depends
+on `Bar.B` and `Bar.C`, then `foo.cmxs` will contain units named `A`,
+`Bar.B` and `Bar.C`. When `foo.cmxs` is dynamically linked it will link
+these units into the executable with the names `A`, `Bar.B` and `Bar.C`
+-- just as if these units had been statically linked into the executable
+using:
+
+    ocamlopt ... -P bar a.cmx ...
 
 ## Use cases
 
@@ -324,11 +429,11 @@ sub-libraries. The units would then all be installed in a directory
 named after the library directly beneath a known namespace directory. In
 particular, systems like opam could provide:
 
-    OCAML_NAMESPACES=opam:~/.opam/4.05.0/lib/
+    OCAML_NAMESPACES=opam=~/.opam/4.05.0/lib/
 
 or perhaps:
 
-    OCAML_NAMESPACES=opam:~/.opam/4.05.0/lib/ocaml/site-packages/
+    OCAML_NAMESPACES=opam=~/.opam/4.05.0/lib/ocaml/site-packages/
 
 and the `foo` library would install its units into
 `~/.opam/4.05.0/lib/foo`.
@@ -454,6 +559,42 @@ they are given within the library.
 It is not immediately clear which approach is better, although it is
 worth noting that jbuilder takes the second approach in its emulation of
 namespaces.
+
+### Loading `.cmxs` files at different points in the namespace?
+
+Currently the proposal treats all unit names in `cmxs` files as absolute
+names -- so a unit named `Foo` in the `cmxs` file is linked into the
+executable as `Foo`. However, we could add additional functionality to
+the `Dynlink` module to allow a `cmxs` file to be loaded at a different
+point in the executable's namespace.
+
+For example, you might do:
+
+    Dynlink.loadfile "bar.cmxs" ~at:"Bar"
+
+to load the units in `bar.cmxs` underneath `Bar` in the executable's
+namespace -- so a unit named `Foo` in `bar.cmxs` would be linked into
+the executable as `Bar.Foo`.
+
+This would be more difficult to implement than the simple scheme
+proposed above, but it could be useful in some cases.
+
+### Should we provide similar functionality to ocamlfind's plugin support?
+
+Most OCaml programs that use dynamic linking to support plugins use
+their own mechanism for finding and loading `cmxs` files. However,
+ocamlfind also provides its own support for doing this. In particular,
+it will automatically load the `cmxs` files of libraries if a plugin
+depends on them and they are not already linked into the executable.
+
+We could provide similar support with this proposal. In an ideal world
+this would support directly linking the required `.cmx` files based on
+the `OCAML_NAMESPACES` variable. However, OCaml does not support dynamic
+linking of `cmx` files, requiring them instead to be included within a
+`cmxs` file. As such we would probably need to use a separate
+environment variable along with a convention for finding the appropriate
+`cmxs` file. It is possible that such a mechanism would be better
+implemented as a third-party library.
 
 ## Implementation
 
