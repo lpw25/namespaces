@@ -349,7 +349,7 @@ For example, given a file `foo.list` containing:
     Bar.C    bar/build/c
     Bar.D    bar/d
 
-then `-P foo.list` will will give the units described by `a.cmi`,
+then `-P foo.list` will give the units described by `a.cmi`,
 `build/b.cmi`, `/bar/build/c.cmi` and `bar/d.cmi` the names `Foo.A`,
 `Foo.B`, `Foo.Bar.C` and `Foo.Bar.D` respectively, and make them
 available in the source as a module `Foo` containing `A`, `B`, `Bar.C`
